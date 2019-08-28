@@ -1,5 +1,19 @@
 library(tidyverse)
 library(ggmap)
+library(grid)
+library(imager)
+
+sequencers <- c("1-miseq", "2-nextseq", "3-hiseqx", "4-novaseq", "5-nanopore", "6-roche-454", "7-ion-proton", "8-bgi-seq")
+img_list <- lapply(sequencers, function(name) {
+  file <- paste0("img/", name, ".png")
+  if (file.exists(file)) {
+    img <- load.image(file)
+  } else {
+    url <- paste0("https://github.com/yanlinlin82/link-game-in-r/raw/master/", file)
+    img <- load.image(url)
+  }
+  rasterGrob(img, interpolate = TRUE)
+})
 
 init <- function(n, w, h = w) {
   stopifnot((w * h) %% n == 0)
@@ -20,6 +34,13 @@ draw <- function(a, cur, n, p = NULL) {
     scale_y_continuous(limits = c(0, max(a$y) + 1)) +
     scale_fill_manual(values = cols[sort(unique(a$m))]) +
     theme_void()
+  for (i in 1:nrow(a)) {
+    if (!is.na(a$m[[i]])) {
+      g <- g + annotation_custom(img_list[[as.integer(a$m[[i]])]],
+                                 xmin = a$x[[i]] - .4, xmax = a$x[[i]] + .4,
+                                 ymin = a$y[[i]] - .4, ymax = a$y[[i]] + .4)
+    }
+  }
   if (nrow(cur) > 0) {
     g <- g + geom_rect(data = cur,
                        aes(xmin = x - .5, xmax = x + .5,
