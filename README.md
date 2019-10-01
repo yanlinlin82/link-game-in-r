@@ -27,3 +27,14 @@ R> play(4, 4)
 ## 补充说明
 
 注：本游戏使用的图片为当代高通量测序仪，下载自各设备厂商网站，版权归属原厂商所有。
+
+## 已知问题
+
+游戏过程中，偶尔会出现如下报错而终止：
+
+```
+Error in data.frame(lon = lon_deg, lat = lat_deg) : 
+  arguments imply differing number of rows: 1, 0
+```
+
+经查，初步定位于`gglocator()`函数内部，原因及复现条件尚未确定。
