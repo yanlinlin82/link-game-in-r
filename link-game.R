@@ -3,18 +3,6 @@ library(ggmap)
 library(grid)
 library(imager)
 
-sequencers <- c("1-miseq", "2-nextseq", "3-hiseqx", "4-novaseq", "5-nanopore", "6-roche-454", "7-ion-proton", "8-bgi-seq")
-img_list <- lapply(sequencers, function(name) {
-  file <- paste0("img/", name, ".png")
-  if (file.exists(file)) {
-    img <- load.image(file)
-  } else {
-    url <- paste0("https://github.com/yanlinlin82/link-game-in-r/raw/master/", file)
-    img <- load.image(url)
-  }
-  rasterGrob(img, interpolate = TRUE)
-})
-
 init <- function(n, w, h = w) {
   stopifnot((w * h) %% n == 0)
   stopifnot(((w * h) / n) %% 2 == 0)
@@ -23,22 +11,28 @@ init <- function(n, w, h = w) {
          m = sample(rep(1:n, each = (w * h) / n)) %>% factor(1:n))
 }
 
-draw <- function(a, cur, n, p = NULL) {
-  cols <- rainbow(n)
+draw <- function(a, cur, n, img_list = NULL, p = NULL) {
+  cols <- rainbow(n, s = .5)
   g <- a %>%
     ggplot() +
-    geom_tile(aes(x, y, fill = m), color = "#333333", size = .5, alpha = .6) +
-    geom_text(aes(x, y, label = m)) +
+    geom_rect(data = tibble(x = 0),
+              aes(xmin = -.1, xmax = max(a$x) + 1.1,
+                  ymin = -.1, ymax = max(a$y) + 1.1),
+              color = NA, fill = "white") +
+    geom_tile(aes(x, y, fill = m), color = "#333333", size = .5) +
+    geom_text(aes(x, y, label = m), size = 10, color = "#333333", fontface = "bold") +
     guides(fill = FALSE) +
-    scale_x_continuous(limits = c(0, max(a$x) + 1)) +
-    scale_y_continuous(limits = c(0, max(a$y) + 1)) +
+    scale_x_continuous(limits = c(-.2, max(a$x) + 1.2)) +
+    scale_y_continuous(limits = c(-.2, max(a$y) + 1.2)) +
     scale_fill_manual(values = cols[sort(unique(a$m))]) +
     theme_void()
-  for (i in 1:nrow(a)) {
-    if (!is.na(a$m[[i]])) {
-      g <- g + annotation_custom(img_list[[as.integer(a$m[[i]])]],
-                                 xmin = a$x[[i]] - .4, xmax = a$x[[i]] + .4,
-                                 ymin = a$y[[i]] - .4, ymax = a$y[[i]] + .4)
+  if (!is.null(img_list)) {
+    for (i in 1:nrow(a)) {
+      if (!is.na(a$m[[i]])) {
+        g <- g + annotation_custom(img_list[[as.integer(a$m[[i]])]],
+                                   xmin = a$x[[i]] - .4, xmax = a$x[[i]] + .4,
+                                   ymin = a$y[[i]] - .4, ymax = a$y[[i]] + .4)
+      }
     }
   }
   if (nrow(cur) > 0) {
@@ -52,11 +46,14 @@ draw <- function(a, cur, n, p = NULL) {
                           data = p,
                           size = 2, color = "red")
   }
-  g %>% print
+  g %>% print(newpage = FALSE)
 }
 
 get_pos <- function(a, cur) {
-  pos <- gglocator() %>%
+  message("gglocator")
+  pos <- gglocator()
+  print(pos)
+  pos <- pos %>%
     mutate(x = round(x) %>% pmax(1) %>% pmin(max(a$x)),
            y = round(y) %>% pmax(1) %>% pmin(max(a$y)))
   if (!is.na(a$m[a$x == pos$x & a$y == pos$y])) {
@@ -140,20 +137,25 @@ find_path <- function(a, cur) {
   return(NULL)
 }
 
-play <- function(n, w, h = w) {
+play <- function(n, w, h = w, img_list = NULL) {
   a <- init(n, w, h)
   cur <- tibble(x = 0, y = 0)[-1,]
 
+  cnt <- 0
   while (sum(!is.na(a$m)) > 0) {
-    draw(a, cur, n)
+    message("step - ", cnt)
+    cnt <- cnt + 1
+    print(matrix(as.integer(a$m), w, h))
+    draw(a, cur, n, img_list)
     cur <- get_pos(a, cur)
+    print(cur)
     if (nrow(cur) > 1) {
       if (nrow(distinct(cur)) == 1) {
         cur <- cur[-(1:nrow(cur)),]
       } else {
         p <- find_path(a, cur)
         if (!is.null(p)) {
-          draw(a, cur, n, p)
+          draw(a, cur, n, img_list, p)
           Sys.sleep(.5)
           for (i in 1:nrow(cur)) {
             a$m[a$x == cur$x[[i]] & a$y == cur$y[[i]]] <- NA
@@ -165,5 +167,17 @@ play <- function(n, w, h = w) {
   }
   win()
 }
+
+sequencers <- c("1-miseq", "2-nextseq", "3-hiseqx", "4-novaseq", "5-nanopore", "6-roche-454", "7-ion-proton", "8-bgi-seq")
+img_list <- lapply(sequencers, function(name) {
+  file <- paste0("img/", name, ".png")
+  if (file.exists(file)) {
+    img <- load.image(file)
+  } else {
+    url <- paste0("https://github.com/yanlinlin82/link-game-in-r/raw/master/", file)
+    img <- load.image(url)
+  }
+  rasterGrob(img, interpolate = TRUE)
+})
 
 cat("try: play(4, 4)\n")
